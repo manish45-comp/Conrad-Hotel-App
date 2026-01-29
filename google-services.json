@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "16476991008",
+    "project_id": "rudra-39de4",
+    "storage_bucket": "rudra-39de4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:16476991008:android:2fcb6cfafdebf531515645",
+        "android_client_info": {
+          "package_name": "com.vaniasolutions.rudra"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBgzMj_up70ToAD1lQ7L6DKe0Wtf-zW3y0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

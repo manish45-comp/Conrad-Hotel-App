@@ -1,0 +1,88 @@
+{
+  "expo": {
+    "name": "VMS Conrad",
+    "slug": "vms_dashboard",
+    "backgroundColor": "#FFFFFF",
+    "version": "1.3.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "assetBundlePatterns": ["**/*"],
+    "jsEngine": "hermes",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "scheme": "vmsdashboard",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.vaniasolutions",
+      "buildNumber": "1.3.0"
+    },
+    "android": {
+      "allowBackup": false,
+      "softwareKeyboardLayoutMode": "pan",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.vaniasolutions.Conrad",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#FFFFFF",
+      "barStyle": "dark-content"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#0C0C0C",
+      "barStyle": "light-content"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-router",
+      "expo-font",
+      "./plugins/withCleartextTraffic.js",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Allow app to save gatepass images",
+          "accessMediaLocation": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "API_BASE_URL": "http://208.109.231.145:6006/api",
+      "API_SELF_REGISTER": "http://208.109.231.145:6767",
+      "router": {},
+      "eas": {
+        "projectId": "936c8d8c-21e9-4dce-9c4e-f1eef604a225"
+      }
+    }
+  }
+}
