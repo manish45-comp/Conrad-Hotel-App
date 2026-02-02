@@ -1,10 +1,5 @@
-export const formatForAPI = (date: Date): string => {
-  if (!(date instanceof Date) || isNaN(date.getTime())) return "";
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  const y = date.getFullYear();
-  return `${m}/${d}/${y}`;
-};
+export const formatForAPI = (date: Date) =>
+  `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
 
 export const formatDateOnly = (str?: string | null): string => {
   if (!str || typeof str !== "string") return "--";

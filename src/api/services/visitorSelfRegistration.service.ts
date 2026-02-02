@@ -47,9 +47,9 @@ export async function getDepartmentList(branchId: string) {
   return res.data;
 }
 
-export async function getEmployeeList(departmentId: string) {
+export async function getEmployeeList(departmentId: string, branchId: string) {
   const res = await axios.get(`${API_SELF_REGISTER}/GetEmployeeList`, {
-    params: { departmentId },
+    params: { departmentId, branchId },
   });
   return res.data;
 }

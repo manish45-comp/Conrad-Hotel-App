@@ -1,18 +1,28 @@
 import { AppDropdown } from "@/components/common/AppDropdown";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { StepIndicator } from "@/components/common/StepIndicator";
 import { getIdProofTypes } from "@/src/api/services/visitorSelfRegistration.service";
 import { useBackButtonhandler } from "@/src/hooks/useBackButtonhandler";
 import { useAuthStore } from "@/src/stores/useAuthStore";
 import { useVisitorFormStore } from "@/src/stores/useVisitorFormStore";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { Image, ScrollView, StatusBar, StyleSheet, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  View,
+} from "react-native";
 import {
   Button,
   MD3Theme,
-  Surface,
   Text,
   TextInput,
   useTheme,
@@ -24,7 +34,10 @@ type IdProofType = {
   name: string;
 };
 
+type DocSide = "front" | "back";
+
 const Details = () => {
+  const { onConfirmExit, setShowConfirm, showConfirm } = useBackButtonhandler();
   const {
     name,
     company,
@@ -33,16 +46,21 @@ const Details = () => {
     idProofId,
     idProofImage,
     setField,
+    idProofBackImage,
   } = useVisitorFormStore();
 
   const { user } = useAuthStore();
   const theme = useTheme();
 
-  useBackButtonhandler();
-
   const [idProofTypes, setIdProofTypes] = useState<IdProofType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [docLoading, setDocLoading] = useState(false);
+
+  const [activeCaptureSide, setActiveCaptureSide] = useState<DocSide | null>(
+    null,
+  );
+  const cameraRef = useRef<CameraView>(null);
+  const [permission, requestPermission] = useCameraPermissions();
 
   const [idOpen, setIdOpen] = useState(false);
 
@@ -91,44 +109,154 @@ const Details = () => {
     const result = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: 1200 } }],
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      { compress: 1, format: ImageManipulator.SaveFormat.JPEG, base64: true },
     );
     return result.base64!;
   };
 
-  const pickFromGallery = async () => {
+  const captureDocument = async () => {
+    if (!cameraRef.current || !activeCaptureSide) return;
+
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 1,
+        skipProcessing: false,
+      });
+
+      if (!photo?.uri) return;
+
+      const base64 = await processImage(photo.uri);
+
+      if (activeCaptureSide === "front") {
+        setField("idProofImage", base64);
+      } else {
+        setField("idProofBackImage", base64);
+      }
+
+      setActiveCaptureSide(null);
+    } catch (err) {
+      console.error("Capture failed:", err);
+    }
+  };
+
+  const renderDocSlot = (side: DocSide, imageData: string | null) => {
+    const isCapturing = activeCaptureSide === side;
+
+    if (isCapturing) {
+      return (
+        <View style={[styles.docCardActive]}>
+          <CameraView
+            ref={cameraRef}
+            facing="front"
+            style={StyleSheet.absoluteFill}
+          />
+          {/* THE ID CARD RATIO GUIDELINE */}
+          <View style={styles.guidelineOverlay}>
+            <Text style={styles.guidelineText}>
+              PLACE {side.toUpperCase()} OF ID WITHIN FRAME
+            </Text>
+          </View>
+
+          <View style={styles.cameraControls}>
+            <Button mode="text" onPress={() => setActiveCaptureSide(null)}>
+              CANCEL
+            </Button>
+            <Pressable style={styles.shutterBtn} onPress={captureDocument}>
+              <View style={styles.shutterInner} />
+            </Pressable>
+            <Button
+              mode="text"
+              onPress={() => {
+                if (activeCaptureSide === "front") {
+                  setActiveCaptureSide(null);
+                  setField("idProofImage", "");
+                } else {
+                  setActiveCaptureSide(null);
+                  setField("idProofBackImage", "");
+                }
+              }}
+            >
+              CLEAR
+            </Button>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <Pressable
+        style={styles.docCard}
+        onPress={async () => {
+          if (!permission?.granted) await requestPermission();
+          setActiveCaptureSide(side);
+        }}
+      >
+        {imageData ? (
+          <Image
+            source={{ uri: `data:image/jpeg;base64,${imageData}` }}
+            style={styles.docImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.placeholder}>
+            <MaterialCommunityIcons
+              name="card-account-details-outline"
+              size={32}
+              color={theme.colors.primary}
+              style={{ marginBottom: 8, opacity: 0.5 }}
+            />
+            <Text style={styles.placeholderTitle}>
+              {side.toUpperCase()} SCAN
+            </Text>
+            <Text style={styles.placeholderSub}>Tap to open scanner</Text>
+          </View>
+        )}
+      </Pressable>
+    );
+  };
+
+  const saveDocImage = async (uri: string, side: DocSide) => {
+    const base64 = await processImage(uri);
+
+    if (side === "front") {
+      setField("idProofImage", base64);
+    } else {
+      setField("idProofBackImage", base64);
+    }
+  };
+
+  const pickFromGallery = async (side: DocSide) => {
     setDocLoading(true);
+
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
+
     if (!res.canceled) {
-      const base64 = await processImage(res.assets[0].uri);
-      setField("idProofImage", base64);
+      await saveDocImage(res.assets[0].uri, side);
     }
+
     setDocLoading(false);
   };
-
-  const captureFromCamera = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) return;
-    const res = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    });
-    if (!res.canceled) {
-      const base64 = await processImage(res.assets[0].uri);
-      setField("idProofImage", base64);
-    }
-  };
+  const styles = React.useMemo(() => makeStyle(theme), [theme]);
 
   const isFormValid =
     name && company && address && idProofId && (idProofNumber || idProofImage);
-
-  const styles = React.useMemo(() => makeStyle(theme), [theme]);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <StepIndicator step={3} total={5} title="Guest Profile" />
+      <ConfirmDialog
+        visible={showConfirm}
+        message="Are you want go back to home?"
+        confirmText="Ok"
+        cancelText="Cancel"
+        onConfirm={onConfirmExit}
+        onCancel={() => setShowConfirm(false)}
+        isApproveLoading={false}
+        isRejectLoading={false}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -200,37 +328,29 @@ const Details = () => {
 
         {idProofId && (
           <View style={styles.uploadSection}>
-            <Text style={styles.uploadLabel}>DOCUMENT ATTACHMENT</Text>
-            <View style={styles.uploadRow}>
-              <Button
-                icon="camera-outline"
-                mode="outlined"
-                onPress={captureFromCamera}
-                style={styles.uploadBtn}
-                textColor="#C5A059"
-              >
-                SNAP PHOTO
-              </Button>
-              <Button
-                icon="image-outline"
-                mode="outlined"
-                onPress={pickFromGallery}
-                style={styles.uploadBtn}
-                textColor="#C5A059"
-              >
-                GALLERY
-              </Button>
+            <Text style={styles.uploadLabel}>DOCUMENT — FRONT & BACK</Text>
+            <View style={styles.docGrid}>
+              {renderDocSlot("front", idProofImage)}
+              {renderDocSlot("back", idProofBackImage)}
             </View>
 
-            {idProofImage && (
-              <Surface style={styles.previewContainer} elevation={4}>
-                <Image
-                  source={{ uri: `data:image/png;base64,${idProofImage}` }}
-                  style={styles.docImage}
-                  resizeMode="cover"
-                />
-              </Surface>
-            )}
+            {/* Gallery fallbacks remain same */}
+            <View style={styles.galleryRow}>
+              <Button
+                mode="text"
+                onPress={() => pickFromGallery("front")}
+                textColor={theme.colors.primary}
+              >
+                FROM GALLERY (FRONT)
+              </Button>
+              <Button
+                mode="text"
+                onPress={() => pickFromGallery("back")}
+                textColor={theme.colors.primary}
+              >
+                FROM GALLERY (BACK)
+              </Button>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -330,7 +450,6 @@ export const makeStyle = (theme: MD3Theme) =>
 
     nextButton: {
       borderRadius: 0,
-      backgroundColor: theme.colors.primary,
     },
 
     nextButtonContent: {
@@ -341,5 +460,114 @@ export const makeStyle = (theme: MD3Theme) =>
       color: theme.colors.onPrimary,
       fontWeight: "700",
       letterSpacing: 2,
+    },
+
+    placeholder: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      opacity: 0.6,
+    },
+
+    placeholderTitle: {
+      fontSize: 12,
+      letterSpacing: 2,
+      fontWeight: "700",
+      color: theme.colors.primary,
+    },
+
+    placeholderSub: {
+      fontSize: 10,
+      marginTop: 4,
+      color: "#999",
+    },
+
+    galleryRow: {
+      flexDirection: "column",
+      justifyContent: "space-between",
+      marginTop: 12,
+    },
+    captureFab: {
+      position: "absolute",
+      bottom: 8,
+      alignSelf: "center",
+      borderRadius: 20,
+      height: 36,
+    },
+    closeBtn: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+    },
+    docGrid: {
+      flexDirection: "column", // Vertical layout
+      gap: 20,
+    },
+    docCard: {
+      width: "100%",
+      aspectRatio: 1.58, // ID Card Standard Ratio
+      borderRadius: 16,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: theme.colors.outlineVariant,
+      backgroundColor: theme.colors.surfaceVariant,
+      overflow: "hidden",
+    },
+    docCardActive: {
+      width: "100%",
+      aspectRatio: 1.58,
+      borderRadius: 16,
+      overflow: "hidden",
+      backgroundColor: "#000",
+    },
+    guidelineOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    idFrame: {
+      width: "100%",
+      height: "100%",
+      position: "relative",
+    },
+    frameCorner: {
+      position: "absolute",
+      width: 20,
+      height: 20,
+      borderColor: theme.colors.primary,
+    },
+    guidelineText: {
+      color: "#FFF",
+      fontSize: 10,
+      fontWeight: "700",
+      letterSpacing: 1.5,
+      textShadowColor: "rgba(0, 0, 0, 0.75)",
+      textShadowOffset: { width: -1, height: 1 },
+      textShadowRadius: 10,
+    },
+    cameraControls: {
+      position: "absolute",
+      bottom: 10,
+      left: 0,
+      right: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+    },
+    shutterBtn: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: "rgba(255,255,255,0.3)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    shutterInner: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "#FFF",
     },
   });

@@ -56,7 +56,9 @@ export default function StepOne() {
 
         <View style={styles.body}>
           <View style={styles.welcomeBox}>
-            <Text style={styles.luxuryTitle}>GUEST IDENTIFICATION</Text>
+            <Text style={styles.luxuryTitle}>
+              VENDOR/VISITOR IDENTIFICATION
+            </Text>
             <Text style={styles.luxurySubtitle}>
               Please provide the visitor's mobile number to verify their
               profile.

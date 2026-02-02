@@ -35,6 +35,7 @@ type VisitorFormState = {
   idProofId: string;
   idProofNumber: string;
   idProofImage?: string;
+  idProofBackImage: string | null;
 
   // Step 3
   purpose?: string;
@@ -65,6 +66,8 @@ export const useVisitorFormStore = create<VisitorFormState>((set) => ({
   idProofId: "",
   gatePassData: undefined,
   idProofImage: "",
+  idProofBackImage: "",
+
   cardNumber: null,
 
   setField: (key, value) => set({ [key]: value } as any),
@@ -77,6 +80,7 @@ export const useVisitorFormStore = create<VisitorFormState>((set) => ({
       idProofType: "",
       idProofId: "",
       idProofImage: "",
+      idProofBackImage: "",
       idProofNumber: "",
       photoLocal: undefined,
       photoUrl: undefined,
@@ -97,6 +101,7 @@ export const useVisitorFormStore = create<VisitorFormState>((set) => ({
       idProofType: "",
       idProofId: "",
       idProofImage: "",
+      idProofBackImage: "",
       idProofNumber: "",
       photoLocal: undefined,
       photoUrl: undefined,

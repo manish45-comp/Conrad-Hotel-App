@@ -8,7 +8,7 @@ const ScannerLayout = () => {
   return (
     <Stack
       screenOptions={{
-        animation: "slide_from_bottom",
+        animation: "slide_from_right",
         headerStyle: {
           backgroundColor: LUXURY_CHARCOAL,
           borderBottomWidth: 1,

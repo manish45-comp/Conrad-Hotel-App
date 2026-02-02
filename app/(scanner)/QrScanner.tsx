@@ -1,3 +1,4 @@
+import { useScanFeedback } from "@/src/hooks/useScanFeedback";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   BarcodeScanningResult,
@@ -5,7 +6,6 @@ import {
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
-import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { Animated, Easing, StatusBar, StyleSheet, View } from "react-native";
@@ -15,11 +15,16 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+const VISITOR_ID_REGEX = /^\d{3,12}$/;
+
 const QrScanner = () => {
-  const [facing] = useState<CameraType>("back");
+  const [facing] = useState<CameraType>("front");
   const [permissions, requestPermission] = useCameraPermissions();
   const [scannerVisible, setScannerVisible] = useState(true);
   const insets = useSafeAreaInsets();
+  const scanLockRef = React.useRef(false);
+
+  const { playError, playSuccess } = useScanFeedback();
 
   // Animation for the scanning line
   const scanLineAnim = new Animated.Value(0);
@@ -50,21 +55,39 @@ const QrScanner = () => {
   useFocusEffect(
     useCallback(() => {
       setScannerVisible(true);
+      scanLockRef.current = false;
       return () => setScannerVisible(false);
     }, []),
   );
 
-  const handleScan = (scanningResult: BarcodeScanningResult) => {
-    if (!scannerVisible) return;
-    const visitorId = scanningResult?.data?.trim();
-    if (!visitorId) return;
+  const handleScan = async (scanningResult: BarcodeScanningResult) => {
+    // 🚫 prevent repeated firing
+    if (!scannerVisible || scanLockRef.current) return;
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    scanLockRef.current = true;
+
+    const rawData = scanningResult?.data?.trim();
+
+    console.log("QR RAW:", rawData);
+
+    if (!rawData || !VISITOR_ID_REGEX.test(rawData)) {
+      await playError();
+
+      // allow scanning again after short delay
+      setTimeout(() => {
+        scanLockRef.current = false;
+      }, 1500);
+
+      return;
+    }
+
+    await playSuccess();
+
     setScannerVisible(false);
 
     router.push({
       pathname: "/(scanner)/VisitorQrDetails" as any,
-      params: { id: visitorId },
+      params: { id: rawData },
     });
   };
 

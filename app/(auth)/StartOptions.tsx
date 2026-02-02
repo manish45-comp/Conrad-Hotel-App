@@ -1,7 +1,7 @@
 import { useAuthStore } from "@/src/stores/useAuthStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Image, Pressable, StatusBar, StyleSheet, View } from "react-native";
 import { Button, MD3Theme, Surface, Text, useTheme } from "react-native-paper";
 import Animated, {
@@ -13,8 +13,9 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Images
-import logo from "../../assets/images/icon-removebg.png"; // Hotel Logo
-import etrackinfo from "../../assets/images/icon_logo.png"; // Dev Company Logo
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import logo from "../../assets/images/icon-removebg.png";
+import etrackinfo from "../../assets/images/icon_logo.png";
 
 const useScaleAnimation = () => {
   const scale = useSharedValue(1);
@@ -33,6 +34,7 @@ const useScaleAnimation = () => {
 const StartOptions: React.FC = () => {
   const { user, logout } = useAuthStore();
   const theme = useTheme();
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(20);
@@ -60,6 +62,16 @@ const StartOptions: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
+      <ConfirmDialog
+        visible={showConfirm}
+        message="Are you sure you wish to end your current session?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        onConfirm={handleLogout}
+        onCancel={() => setShowConfirm(false)}
+        isApproveLoading={false}
+        isRejectLoading={false}
+      />
 
       <SafeAreaView style={styles.safeArea}>
         {/* 1. Elegant Header */}
@@ -130,7 +142,7 @@ const StartOptions: React.FC = () => {
         {/* 4. Luxury Footer */}
         <View style={styles.footer}>
           <Button
-            onPress={handleLogout}
+            onPress={() => setShowConfirm(true)}
             mode="text"
             icon="power"
             textColor={theme.colors.secondary}
@@ -283,7 +295,7 @@ export const makeStyles = (theme: MD3Theme) =>
     primaryTileLabel: { color: theme.colors.onPrimary },
     primaryTileSub: { color: theme.colors.onSecondary },
 
-    footer: { alignItems: "center", paddingBottom: 30 },
+    footer: { alignItems: "center" },
     logoutLabel: { fontSize: 11, letterSpacing: 2, fontWeight: "600" },
     devSection: { alignItems: "center", marginTop: 20 },
     poweredBy: {

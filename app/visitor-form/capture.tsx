@@ -1,42 +1,65 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect } from "react";
-import { Image, StatusBar, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import { Button, MD3Theme, Text, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { StepIndicator } from "@/components/common/StepIndicator";
-import { useBackButtonhandler } from "@/src/hooks/useBackButtonhandler";
 import { useCameraCapture } from "@/src/hooks/useCameraCapture";
 import { useVisitorFormStore } from "@/src/stores/useVisitorFormStore";
 
-const Capture = () => {
-  const theme = useTheme();
-  useBackButtonhandler();
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { useBackButtonhandler } from "@/src/hooks/useBackButtonhandler";
+import { CameraView } from "expo-camera";
 
+const Capture = () => {
+  const { showConfirm, setShowConfirm, onConfirmExit } = useBackButtonhandler();
+
+  const theme = useTheme();
   const { setField, photoUrl } = useVisitorFormStore();
-  const { photoUri, base64, capturePhoto, hasPhoto } = useCameraCapture();
+  const {
+    photoUri,
+    base64,
+    capturePhoto,
+    hasPhoto,
+    isCameraActive,
+    setIsCameraActive,
+    cameraRef,
+    permission,
+    requestPermission,
+  } = useCameraCapture();
 
   useEffect(() => {
-    if (base64) {
-      setField("photoUrl", base64);
-    }
+    if (base64) setField("photoUrl", base64);
   }, [base64, setField]);
-
-  const previewSource = hasPhoto
-    ? { uri: photoUri! }
-    : photoUrl
-      ? { uri: `data:image/jpeg;base64,${photoUrl}` }
-      : null;
 
   const styles = React.useMemo(() => makeStyle(theme), [theme]);
 
+  // Handle Permissions UI
+  if (!permission?.granted) {
+    return (
+      <SafeAreaView style={styles.pContainer}>
+        <Button mode="contained" onPress={requestPermission}>
+          Enable Camera
+        </Button>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-
-      {/* Reusing your refined StepIndicator from Step 1 */}
       <StepIndicator step={2} total={5} title="Identity Portrait" />
+      <ConfirmDialog
+        visible={showConfirm}
+        message="Are you want go back to home?"
+        confirmText="Ok"
+        cancelText="Cancel"
+        onConfirm={onConfirmExit}
+        onCancel={() => setShowConfirm(false)}
+        isApproveLoading={false}
+        isRejectLoading={false}
+      />
 
       <View style={styles.body}>
         <View style={styles.content}>
@@ -44,9 +67,24 @@ const Capture = () => {
 
           <View style={styles.outerFrame}>
             <View style={styles.previewWrapper}>
-              {previewSource ? (
-                <Image source={previewSource} style={styles.image} />
+              {isCameraActive ? (
+                // SEAMLESS LIVE FEED
+                <CameraView
+                  ref={cameraRef}
+                  facing="front"
+                  mirror={true}
+                  style={styles.image}
+                />
+              ) : photoUri || photoUrl ? (
+                // PREVIEW OF TAKEN PHOTO
+                <Image
+                  source={{
+                    uri: photoUri || `data:image/jpeg;base64,${photoUrl}`,
+                  }}
+                  style={styles.image}
+                />
               ) : (
+                // PLACEHOLDER
                 <View style={styles.placeholder}>
                   <MaterialCommunityIcons
                     name="camera-outline"
@@ -57,39 +95,43 @@ const Capture = () => {
                 </View>
               )}
             </View>
-            {/* Elegant corner accents to give a "Target/Studio" feel */}
             <View style={[styles.corner, styles.topLeft]} />
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
             <View style={[styles.corner, styles.bottomRight]} />
           </View>
-
-          <Text style={styles.hintText}>
-            Ensure the guest's face is clearly visible within the frame.
-          </Text>
         </View>
       </View>
 
       <View style={styles.footer}>
         <View style={{ gap: 12 }}>
-          <Button
-            mode="outlined"
-            onPress={capturePhoto}
-            icon="camera"
-            textColor={theme.colors.primary}
-            style={styles.secondaryButton}
-            contentStyle={styles.buttonContent}
-          >
-            {hasPhoto ? "RETAKE PORTRAIT" : "OPEN CAMERA"}
-          </Button>
+          {isCameraActive ? (
+            <Button
+              mode="contained"
+              onPress={capturePhoto}
+              style={styles.primaryButton}
+              contentStyle={styles.buttonContent}
+            >
+              SNAP PHOTO
+            </Button>
+          ) : (
+            <Button
+              mode="outlined"
+              onPress={() => setIsCameraActive(true)}
+              icon="camera"
+              style={styles.secondaryButton}
+              contentStyle={styles.buttonContent}
+            >
+              {hasPhoto ? "RETAKE PORTRAIT" : "ACTIVATE CAMERA"}
+            </Button>
+          )}
 
           <Button
             mode="contained"
-            disabled={!hasPhoto && !photoUrl}
+            disabled={(!hasPhoto && !photoUrl) || isCameraActive}
             onPress={() => router.push("/visitor-form/details")}
             style={styles.primaryButton}
             contentStyle={styles.buttonContent}
-            labelStyle={styles.primaryButtonLabel}
           >
             CONTINUE
           </Button>
@@ -103,6 +145,13 @@ export default Capture;
 
 export const makeStyle = (theme: MD3Theme) =>
   StyleSheet.create({
+    pContainer: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+      paddingHorizontal: 24,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     container: {
       flex: 1,
       backgroundColor: theme.colors.background,
@@ -188,7 +237,6 @@ export const makeStyle = (theme: MD3Theme) =>
     },
     primaryButton: {
       borderRadius: 0,
-      backgroundColor: theme.colors.primary,
     },
     secondaryButton: {
       borderRadius: 0,

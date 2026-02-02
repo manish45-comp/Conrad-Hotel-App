@@ -5,7 +5,6 @@ import {
   getEmployeeList,
   postVisitorEntry,
 } from "@/src/api/services/visitorSelfRegistration.service";
-import { useAuthStore } from "@/src/stores/useAuthStore";
 import { useVisitorFormStore } from "@/src/stores/useVisitorFormStore";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -14,6 +13,7 @@ import { Button, MD3Theme, Text, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppDropdown } from "@/components/common/AppDropdown";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { useBackButtonhandler } from "@/src/hooks/useBackButtonhandler";
 
 type Item = {
@@ -22,6 +22,8 @@ type Item = {
 };
 
 const WhomToMeet = () => {
+  const { onConfirmExit, setShowConfirm, showConfirm } = useBackButtonhandler();
+
   const [branch, setBranch] = useState<string | null>(null);
   const [department, setDepartment] = useState<string | null>(null);
   const [employee, setEmployee] = useState<string | null>(null);
@@ -38,9 +40,6 @@ const WhomToMeet = () => {
   const [departmentOpen, setDepartmentOpen] = useState(false);
   const [employeeOpen, setEmployeeOpen] = useState(false);
 
-  const { user } = useAuthStore();
-  useBackButtonhandler();
-
   const {
     address,
     company,
@@ -56,55 +55,97 @@ const WhomToMeet = () => {
 
   // ---------------- FETCH DATA ----------------
 
+  // branch list (initial)
   useEffect(() => {
     const fetchBranches = async () => {
       try {
         setFetchingData(true);
-        const result = await getBranchList();
-        const list = result ?? [];
+
+        const res = await getBranchList();
+        const list = res ?? [];
+
         setBranchList(list);
-        if (list.length) setBranch(list[0].id);
+
+        if (list.length) {
+          setBranch(list[0].id);
+        }
       } catch (e) {
-        console.log(e);
+        console.log("Failed to fetch branches", e);
       } finally {
         setFetchingData(false);
       }
     };
-    fetchBranches();
-  }, [user?.UserId]);
 
+    fetchBranches();
+  }, []);
+
+  // departments + employees when branch changes
   useEffect(() => {
-    if (!branch) return;
-    const fetchDepartments = async () => {
+    if (!branch) {
+      setDepartmentList([]);
+      setEmployeeList([]);
+      setDepartment(null);
+      setEmployee(null);
+      return;
+    }
+
+    const fetchOnBranchChange = async () => {
       try {
-        const result = await getDepartmentList(branch);
-        const list = result ?? [];
-        setDepartmentList(list);
-        if (list.length) setDepartment(list[0].id);
-        else setDepartment(null);
+        // fetch departments
+        const deptRes = await getDepartmentList(branch);
+        setDepartmentList(deptRes ?? []);
+
+        // fetch employees by branch (department = null)
+        const empRes = await getEmployeeList(null, branch);
+        setEmployeeList(empRes ?? []);
+
+        setDepartment(null);
         setEmployee(null);
       } catch (e) {
-        console.log(e);
+        console.log("Failed to load branch data", e);
       }
     };
-    fetchDepartments();
+
+    fetchOnBranchChange();
   }, [branch]);
 
+  // employees by branch when department is NOT selected
   useEffect(() => {
-    if (!department) return;
-    const fetchEmployees = async () => {
+    if (!branch || department) return;
+
+    const fetchEmployeesByBranch = async () => {
       try {
-        const result = await getEmployeeList(department);
-        setEmployeeList(result ?? []);
+        const res = await getEmployeeList(null, branch);
+        setEmployeeList(res ?? []);
       } catch (e) {
-        console.log(e);
+        console.log("Failed to fetch employees by branch", e);
       }
     };
+
+    fetchEmployeesByBranch();
+  }, [branch, department]);
+
+  // employees when department changes
+  useEffect(() => {
+    if (!department) {
+      setEmployeeList([]);
+      setEmployee(null);
+      return;
+    }
+
+    const fetchEmployees = async () => {
+      try {
+        const res = await getEmployeeList(department, null);
+        setEmployeeList(res ?? []);
+      } catch (e) {
+        console.log("Failed to fetch employees", e);
+      }
+    };
+
     fetchEmployees();
   }, [department]);
 
   // ---------------- MEMOIZED LISTS ----------------
-
   const dropdownBranchList = useMemo(
     () => BranchList.map((item) => ({ label: item.name, value: item.id })),
     [BranchList],
@@ -125,7 +166,6 @@ const WhomToMeet = () => {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!branch) e.branch = "Location required";
-    if (!department) e.department = "Department required";
     if (!employee) e.employee = "Host selection required";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -169,6 +209,16 @@ const WhomToMeet = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <StepIndicator step={5} total={5} title="Finalize Visit" />
+      <ConfirmDialog
+        visible={showConfirm}
+        message="Are you want go back to home?"
+        confirmText="Ok"
+        cancelText="Cancel"
+        onConfirm={onConfirmExit}
+        onCancel={() => setShowConfirm(false)}
+        isApproveLoading={false}
+        isRejectLoading={false}
+      />
 
       <View style={styles.body}>
         <Text style={styles.instructionText}>APPOINTMENT DETAILS</Text>
@@ -224,7 +274,7 @@ const WhomToMeet = () => {
           mode="contained"
           onPress={handleSubmit}
           loading={loading}
-          disabled={!branch || !department || !employee || loading}
+          disabled={!branch || !employee || loading}
           style={styles.submitButton}
           contentStyle={styles.buttonContent}
           labelStyle={styles.buttonLabel}
@@ -282,7 +332,6 @@ export const makeStyles = (theme: MD3Theme) =>
 
     submitButton: {
       borderRadius: 0,
-      backgroundColor: theme.colors.primary,
     },
 
     buttonContent: {

@@ -1,55 +1,36 @@
+import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
-import * as ImagePicker from "expo-image-picker";
-import { useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { useRef, useState } from "react";
 
 export function useCameraCapture() {
+  const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [base64, setBase64] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Camera Permission",
-          "Camera access is required to capture visitor photo.",
-        );
-      }
-    })();
-  }, []);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const cameraRef = useRef<CameraView>(null);
 
   const processImage = async (uri: string) => {
     const result = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: 1600 } }],
-      {
-        compress: 0.5,
-        format: ImageManipulator.SaveFormat.JPEG,
-        base64: true,
-      },
+      [{ resize: { width: 1200 } }], // Optimized for VMS storage
+      { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true },
     );
-
     return result.base64!;
   };
 
   const capturePhoto = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (!permission.granted) return;
-
-      const res = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.3,
+        skipProcessing: false,
       });
 
-      if (res.canceled) return;
-      const asset = res.assets[0];
-      const base64 = await processImage(asset.uri);
-      setPhotoUri(asset.uri);
-      setBase64(base64 ?? null);
-    } catch (e) {
-      console.log(e);
+      if (photo) {
+        const b64 = await processImage(photo.uri);
+        setPhotoUri(photo.uri);
+        setBase64(b64);
+        setIsCameraActive(false); // Close camera after capture
+      }
     }
   };
 
@@ -58,5 +39,10 @@ export function useCameraCapture() {
     base64,
     capturePhoto,
     hasPhoto: !!photoUri,
+    isCameraActive,
+    setIsCameraActive,
+    cameraRef,
+    permission,
+    requestPermission,
   };
 }

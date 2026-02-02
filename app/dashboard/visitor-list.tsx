@@ -15,6 +15,7 @@ import DateFilters from "@/components/visitorList/DateFilters";
 import VisitorCardList from "@/components/visitorList/VisitorCardList";
 import { useAuthStore } from "@/src/stores/useAuthStore";
 import { useVisitorStore } from "@/src/stores/visitor.store";
+import { formatForAPI } from "@/src/utils/date";
 
 type PendingAction = "approve" | "reject" | null;
 
@@ -78,9 +79,6 @@ export default function VisitorList() {
         String(v.VisitorId).includes(q),
     );
   }, [visitorsList, searchQuery]);
-
-  const formatForAPI = (date: Date) =>
-    `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
 
   const fetchVisitors = async () => {
     if (!user?.UserId) return;

@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -11,6 +12,7 @@ import {
 import { TabBar, TabView } from "react-native-tab-view";
 
 import CameraCapture from "@/components/camera/CameraCaptureExpo";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import SuccessAlert from "@/components/common/SuccessAlert";
 import DetailsTab from "@/components/visitorDetails/DetailsTab";
 import HeaderSection from "@/components/visitorDetails/HeaderSection";
@@ -24,6 +26,12 @@ import { useAuthStore } from "@/src/stores/useAuthStore";
 import { useVisitorStore } from "@/src/stores/visitor.store";
 import { mapVehicleTypes } from "@/src/utils/dropdownMapper";
 import { isNowWithinDateRange } from "@/src/utils/helper";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
 // Define the luxury palette locally for the parent
 const GOLD = "#C5A059";
@@ -43,13 +51,19 @@ const QrDetails: React.FC = () => {
     loading,
     fetchVisitor,
     updateVisitor,
-    actionLoading,
+    resetVisitor,
     updateVisitorBySecurity,
+    error,
   } = useVisitor();
 
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [tabIndex, setTabIndex] = useState(0);
+
+  const [showConfirm,setShowConfirm]=useState(false)
+
+  const [countdown, setCountdown] = useState(3);
+  const pulse = useSharedValue(0);
 
   const { getVehicleTypes, vehicleTypeList } = useVisitorStore();
 
@@ -110,7 +124,12 @@ const QrDetails: React.FC = () => {
   ];
 
   useEffect(() => {
-    if (id) fetchVisitor(id);
+    if (!id) return;
+    fetchVisitor(id);
+
+    return () => {
+      resetVisitor();
+    };
   }, [id]);
 
   useEffect(() => {
@@ -139,7 +158,89 @@ const QrDetails: React.FC = () => {
     }
   };
 
-  if (loading || actionLoading) {
+  useEffect(() => {
+    if (error !== "Visitor Not Found") return;
+
+    // 📳 Haptic
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+    // 🔴 Pulse animation
+    pulse.value = withRepeat(withTiming(1, { duration: 700 }), -1, true);
+
+    // ⏳ Countdown
+    setCountdown(3);
+
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) return 0;
+        return c - 1;
+      });
+    }, 1000);
+
+    const timeout = setTimeout(() => {
+      router.dismissAll();
+      router.replace("/(scanner)/QrScanner");
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [error]);
+
+  const animatedPulseStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          scale: 1 + pulse.value * 0.02,
+        },
+      ],
+    };
+  });
+  // ---- RENDER GUARDS ----
+
+  // 1️⃣ Fatal error
+  if (error === "Visitor Not Found") {
+    return (
+      <Animated.View
+        style={[
+          {
+            backgroundColor: DARK_BG,
+            flex: 1,
+            justifyContent: "center",
+            padding: 30,
+            gap: 14,
+          },
+          animatedPulseStyle,
+        ]}
+      >
+        <Text
+          style={{
+            color: "#ff3b3b",
+            alignSelf: "center",
+            letterSpacing: 3,
+            fontWeight: "900",
+          }}
+        >
+          VISITOR NOT FOUND
+        </Text>
+
+        <Text
+          variant="labelSmall"
+          style={{
+            color: "rgba(255,255,255,0.6)",
+            alignSelf: "center",
+            letterSpacing: 1.5,
+          }}
+        >
+          Returning to scanner in {countdown}s…
+        </Text>
+      </Animated.View>
+    );
+  }
+
+  // 2️⃣ Loading OR visitor missing
+  if (loading || !visitor) {
     return (
       <View style={[styles.center, { backgroundColor: DARK_BG }]}>
         <ActivityIndicator color={GOLD} size="large" />
@@ -152,6 +253,18 @@ const QrDetails: React.FC = () => {
 
   return (
     <SafeAreaView edges={["bottom"]} style={styles.container}>
+      
+       <ConfirmDialog
+              visible={showConfirm}
+              message={successMsg}
+              confirmText="ok"
+              cancelText=""
+              onConfirm={() => setShowConfirm(false)}
+              onCancel={() => setShowConfirm(false)}
+              isApproveLoading={false}
+              isRejectLoading={false}
+            />
+      
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -232,7 +345,12 @@ const QrDetails: React.FC = () => {
                     visitor.VisitorId,
                     base64,
                   );
-                  Alert.alert(s ? "Profile Secured" : "Capture Failed");
+                 if(s){
+                  setSuccessMsg("Profile Updated")
+                 }else{
+                  setSuccessMsg("Failed to Update Profile ")
+                 }
+                  setShowConfirm(true)
                 }}
               />
             </View>

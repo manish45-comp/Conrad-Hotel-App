@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
-import { Alert, BackHandler } from "react-native";
+import { useCallback, useState } from "react";
+import { BackHandler } from "react-native";
 import { useVisitorFormStore } from "../stores/useVisitorFormStore";
 
 type UseBackButtonHandlerOptions = {
@@ -14,24 +14,21 @@ export function useBackButtonhandler(
 
   const { reset } = useVisitorFormStore();
 
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const onConfirmExit = useCallback(() => {
+    reset();
+    setShowConfirm(false);
+    router.dismissAll();
+    router.replace("/(auth)/StartOptions");
+  }, [reset]);
+
   useFocusEffect(
     useCallback(() => {
       if (!enabled) return;
 
       const onBackPress = () => {
-        Alert.alert("Leave?", "Are you sure you want to go back to Home?", [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "OK",
-            style: "destructive",
-            onPress: () => {
-              reset();
-              router.dismissAll();
-              router.replace("/(auth)/StartOptions");
-            },
-          },
-        ]);
-
+        setShowConfirm(true);
         return true; // block default back action
       };
 
@@ -41,6 +38,12 @@ export function useBackButtonhandler(
       );
 
       return () => subscription.remove();
-    }, [enabled, reset]),
+    }, [enabled]),
   );
+
+  return {
+    showConfirm,
+    setShowConfirm,
+    onConfirmExit,
+  };
 }

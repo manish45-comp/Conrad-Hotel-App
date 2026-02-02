@@ -1,3 +1,4 @@
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { StepIndicator } from "@/components/common/StepIndicator";
 import { getPurposeList } from "@/src/api/services/visitorSelfRegistration.service";
 import { useBackButtonhandler } from "@/src/hooks/useBackButtonhandler";
@@ -30,7 +31,7 @@ type PurposeItem = {
 };
 
 const Purpose = () => {
-  useBackButtonhandler();
+  const { onConfirmExit, setShowConfirm, showConfirm } = useBackButtonhandler();
   const { user } = useAuthStore();
   const { setField, purpose } = useVisitorFormStore();
   const theme = useTheme();
@@ -105,6 +106,16 @@ const Purpose = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <StepIndicator step={4} total={5} title="Visit Intent" />
+      <ConfirmDialog
+        visible={showConfirm}
+        message="Are you want go back to home?"
+        confirmText="Ok"
+        cancelText="Cancel"
+        onConfirm={onConfirmExit}
+        onCancel={() => setShowConfirm(false)}
+        isApproveLoading={false}
+        isRejectLoading={false}
+      />
 
       <View style={styles.headerBox}>
         <Text style={styles.headerSubtitle}>
@@ -135,6 +146,7 @@ const Purpose = () => {
               />
             }
           />
+
           {!!error && (
             <HelperText type="error" style={styles.error}>
               {error}

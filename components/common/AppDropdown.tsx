@@ -16,6 +16,8 @@ interface AppDropdownProps extends Partial<DropDownPickerProps<ValueType>> {
   setValue: React.Dispatch<React.SetStateAction<any>>;
   placeholder?: string;
   error?: string;
+  searchable?: boolean;
+  disabled?: boolean;
 }
 
 export const AppDropdown = ({
@@ -26,11 +28,18 @@ export const AppDropdown = ({
   setOpen,
   setValue,
   placeholder,
+
   error,
   ...rest
 }: AppDropdownProps) => {
   const theme = useTheme();
   const styles = React.useMemo(() => makeStyles(theme), [theme]);
+
+  const computedItems = React.useMemo(() => {
+    return [{ label: "Clear Selection", value: null }, ...items];
+  }, [items]);
+
+  const isSearchable = rest.searchable ?? false;
 
   return (
     <View style={styles.container}>
@@ -39,7 +48,7 @@ export const AppDropdown = ({
       <DropDownPicker
         open={open}
         value={value}
-        items={items}
+        items={computedItems}
         setOpen={setOpen}
         setValue={setValue}
         placeholder={placeholder ?? "Select an option"}
@@ -53,7 +62,10 @@ export const AppDropdown = ({
           backgroundColor: "#1A1A1A", // Match app background
         }}
         // --- SEARCH STYLING ---
-        searchContainerStyle={styles.searchContainer}
+        searchContainerStyle={[
+          styles.searchContainer,
+          !isSearchable && { display: "none" },
+        ]}
         searchTextInputStyle={styles.searchBar}
         searchPlaceholderTextColor="rgba(255,255,255,0.3)"
         // --- INPUT BOX STYLING ---
@@ -76,7 +88,7 @@ export const AppDropdown = ({
           <MaterialCommunityIcons name="check" size={20} color="#C5A059" />
         )}
         renderHeader={() => (
-          <View style={styles.header}>
+          <View style={[styles.header, !isSearchable && { paddingBottom: 10 }]}>
             <View style={styles.headerRow}>
               <View />
 
@@ -92,7 +104,8 @@ export const AppDropdown = ({
               />
             </View>
 
-            <View style={styles.handle} />
+            {/* Only show handle spacing nicely */}
+            <View style={[styles.handle, !isSearchable && { marginTop: 10 }]} />
           </View>
         )}
         closeIconStyle={{

@@ -65,11 +65,12 @@ export interface VisitorStoreState {
   actionLoading: boolean; // used for form submit/update actions
   isApproveLoading: boolean;
   isRejectLoading: boolean;
+  profileUpdateLoading:boolean;
 
   actionVisitorId: number;
   error: string | null;
 
-  fetchVisitor: (id: string) => Promise<void>;
+  fetchVisitor: (id: string,silent:boolean) => Promise<void>;
   updateVisitor: (
     QRCodeId: string,
     id: number,
@@ -105,6 +106,8 @@ export interface VisitorStoreState {
     VisitorId: number,
     LoginUserId: number,
   ) => Promise<boolean>;
+
+  resetVisitor: () => void;
 }
 
 // -------------------------
@@ -116,71 +119,76 @@ export const useVisitorStore = create<VisitorStoreState>((set, get) => ({
   visitorsList: [],
   visitorsPurposeList: [],
   visitorsTypeList: [],
-
   idProofTypeList: [],
   vehicleTypeList: [],
-
   loading: false,
   actionLoading: false,
-
+  profileUpdateLoading:false,
   isApproveLoading: false,
   isRejectLoading: false,
-
   actionVisitorId: null,
   error: null,
 
   /**
    * Fetch visitor details by QR code ID
    */
-  fetchVisitor: async (id: string) => {
+fetchVisitor: async (id: string, silent = false) => {
+  if (!silent) {
     set({ loading: true, error: null });
-    try {
-      const res: ApiResponse<Visitor> = await apiGetVisitorDetails(id);
+  }
 
-      if (res.StatusCode !== 200 || !res.Data) {
-        set({
-          loading: false,
-          visitor: null,
-          error: res.Message ?? "Visitor not found",
-        });
-        return;
-      }
+  try {
+    const res: ApiResponse<Visitor> = await apiGetVisitorDetails(id);
 
-      set({ visitor: res.Data, loading: false, error: null });
-    } catch (err) {
+    if (res.StatusCode !== 200 || !res.Data) {
       set({
         loading: false,
         visitor: null,
-        error: "Something went wrong",
+        error: res.Message ?? "Visitor Not Found",
       });
+      return;
     }
-  },
+
+    set({
+      visitor: res.Data,
+      loading: false,
+      error: null,
+    });
+  } catch (err) {
+    set({
+      loading: false,
+      visitor: null,
+      error: "Something went wrong",
+    });
+  }
+},
+
 
   /**
    * Upload captured image (base64) and update visitor details
    */
   updateVisitor: async (QRCodeId, VisitorId, base64) => {
-    set({ actionLoading: true, error: null });
+    set({ profileUpdateLoading: true, error: null });
 
     try {
       const res = await apiUpdateVisitorDetails(VisitorId, base64);
 
       if (!res || res.StatusCode !== 200) {
         set({
-          actionLoading: false,
+          profileUpdateLoading: false,
           error: res?.Message ?? "Update failed",
         });
         return false;
       }
 
       // Refresh visitor data
-      await get().fetchVisitor(QRCodeId);
+      await get().fetchVisitor(QRCodeId , true);
 
-      set({ actionLoading: false });
+      set({ profileUpdateLoading: false });
       return true;
     } catch (err) {
       set({
-        actionLoading: false,
+        profileUpdateLoading: false,
         error: "Something went wrong",
       });
       return false;
@@ -303,6 +311,9 @@ export const useVisitorStore = create<VisitorStoreState>((set, get) => ({
     }
   },
 
+  /**
+   * Fetch dropdown: Id Proof List
+   */
   getIdProofList: async () => {
     set({ loading: true, error: null });
 
@@ -328,6 +339,10 @@ export const useVisitorStore = create<VisitorStoreState>((set, get) => ({
       });
     }
   },
+
+  /**
+   * Fetch dropdown: Vehicle Types
+   */
 
   getVehicleTypes: async () => {
     set({ loading: true, error: null });
@@ -446,5 +461,12 @@ export const useVisitorStore = create<VisitorStoreState>((set, get) => ({
       });
       return false;
     }
+  },
+
+  /**
+   * reset visitor
+   */
+  resetVisitor: () => {
+    set({ visitor: null });
   },
 }));

@@ -1,6 +1,7 @@
+import { useVisitor } from "@/src/hooks/useVisitor";
 import React from "react";
 import { Image, StyleSheet, View } from "react-native";
-import { Surface, Text } from "react-native-paper";
+import { ActivityIndicator, Surface, Text } from "react-native-paper";
 
 interface Props {
   data: any;
@@ -21,18 +22,23 @@ export default function HeaderSection({
   const image = data?.ImageUrl;
   const visiteeValue = data?.VisiteeName;
 
+  const {profileUpdateLoading}=useVisitor()
+
   return (
     <View style={styles.container}>
       {/* Top Row: Portrait & Status */}
       <View style={styles.topRow}>
         <Surface style={styles.portraitFrame} elevation={4}>
-          {image ? (
+          {!profileUpdateLoading ? image ? (
             <Image source={{ uri: image }} style={styles.portrait} />
           ) : (
             <View style={styles.initialsCircle}>
               <Text style={styles.initialsText}>{name?.charAt(0) || "?"}</Text>
             </View>
-          )}
+          ) :  <View style={styles.initialsCircle}>
+            <ActivityIndicator size="small"/>
+            </View>
+            }
         </Surface>
 
         <View style={styles.mainInfo}>
